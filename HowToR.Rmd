@@ -1043,6 +1043,95 @@ Days          10.467      1.502  18.000   6.968 1.65e-06 ***
  Both fixed and random effects accounted for roughly 80% of variance in the reaction time variable. Visual inspection of residual plots did not reveal any obvious deviations from homoscedasticity or normality. Reaction time has been found to significantly be modulated by number of days of sleep deprivation, β = 10.467, SE = 1.502, t = 6.968, p < .001”
 
 ## Logistic regression
+Quick recap on what it is and what it does:
+- Logistic regression is for categorical (binary) outcome variables
+- Predicts probability of a certain kind of y given values of x
+- Same output as linear model, but estimates are in the log-odd scale
+- Very common classification algorithm in machine learning
+
+We will try to predict shape (jagged vs curved) by the type of consonant using GLM and interpret the output.      
+```{r}
+#make a GLM model for shape
+m <- glm(shape ~ consonant, 
+         data = better_bobo, #  (use your data name here) 
+         family = binomial)
+summary(m)
+```
+
+So how do we interpret this?
+*intercept: the baseline log-odds of positive class (in this case: "jagged" - last in alphabet) --> log-odds for jagged when "Bouba". It's negative to not super likely*
+*consonantK (slope): Positive and significant --> Kiki makes it more likely to be jagged*
+
+Turning Logistic regression into percentage:
+To get normal probabilities out of log odds, we will need package boot and its function for inverse logit:
+
+```{r}
+#see summary again to see log odds
+summary(m)
+
+#log odds into probability for estimate of intercept (the probability of jagged shape given letter B)
+boot::inv.logit(-1.5882)
+
+#log odds into probability for estimate of going from letter B to letter K
+boot::inv.logit(-1.5882 + 2.5576)
+
+levels(better_bobo$consonant)
+levels(better_bobo$shape)
+```
+
+Inverse logit of intercept is equal to 0.1696373, meaning that it's ca 17% chance that it's a jagged shape, given consonant B. By adding the beta estimate of consonantK to initial log odds - we get log odds for jagged shape, given consonant K. Inverse logit of these log odds is equal to 0.7249999, meaning it's roughly 72.5% chance that it's a jagged shape given consonant K. 
+
+The significant p-value of beta estimate for consonant K suggests that change of consonant significantly affects the choice of shape, making choice of jagged shape way more likely in the case of consonant K.
+
+### Assumptions of logReg
+Logistic regression *does not* make many of the key assumptions of linear regression and general linear models that are based on ordinary least squares algorithms:
+
+      - logistic regression does not require a linear relationship between the dependent and independent variables.  
+      - the error terms (residuals) do not need to be normally distributed.
+      - homoscedasticity is not required
+
+However, some other assumptions still apply and you should always consider this when making your own logistic regression models!
+
+  - binary logistic regression requires the *dependent variable to be binary*, i.e. a factor with *two levels*
+      
+  - logistic regression requires the observations to be independent of each other.  In other words, the observations should not come from repeated measurements or matched data - *UNLESS YOU MAKE MIXED EFFECT MODELS*
+      
+  - logistic regression requires there to be little or no multicollinearity among the independent variables.  This means that the independent variables should not be too highly correlated with each other (See Part 2 for multicollinearity check)
+      
+  - logistic regression assumes *linearity of independent variables* and log odds (otherwise it will be a bad fit)
+    
+  - logistic regression typically requires a large sample size.  A general guideline is that you need at minimum of 10 cases with the least frequent outcome for each independent variable in your model. For example, if you have 5 independent variables and the expected probability of your least frequent outcome is .10, then you would need a minimum sample size of 500 (10*5 / .10).
+
+### Interpreting
+Output
+    
+    Call:
+    glm(formula = shape ~ consonant, family = binomial, data = better_bobo)
+    
+    Coefficients:
+                Estimate Std. Error z value Pr(>|z|)    
+    (Intercept)  -1.5882     0.1126  -14.11   <2e-16 ***
+    consonantK    2.5576     0.1471   17.39   <2e-16 ***
+
+    Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+    (Dispersion parameter for binomial family taken to be 1)
+
+        Null deviance: 1540.2  on 1119  degrees of freedom
+    Residual deviance: 1168.7  on 1118  degrees of freedom
+    AIC: 1172.7
+
+*intercept: the baseline log-odds of positive class (in this case: "jagged" - last in alphabet) --> log-odds for jagged when "Bouba". It's negative to not super likely*
+*consonantK (slope): Positive and significant --> Kiki makes it more likely to be jagged*
+
+Our predictor is also a categorical variable - it also has levels
+    - based on the order levels are encoded in the predictor, the very first one will be treated as the base level
+    - knowing the base level is important for model interpretation: intercept shows **log odds of outcome's level 1** at **the base level of predictor**
+    - all other model estimates show change in the log odds due to unit change in predictor
+
+On the example of our data: levels(better_bobo$consonant) are "B" "K" - meaning B is base level. Therefore, the model's estimate of intercept will show log odds of jagged shape in the case of consonant B. And the beta estimate of predictor consonant K will show change in log odds for jagged shape due to change from consonant B to consonant K
+
+### Reporting
 
 
 # COMPARING MODELS
