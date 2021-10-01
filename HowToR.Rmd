@@ -1,0 +1,498 @@
+---
+title: "HowToR"
+author: "WIBE"
+date: "9/30/2021"
+output: html_document
+---
+
+# About this file
+1. All headers are setup with correct notations which means, that you can open the document outline to get a quick overview of the notes. 
+2. Beware that you can open/close headers/chunks for more structure; some headers might be closed.
+3. For the purpose of getting a quick idea of some functions/plots, I've made a local df that isn't attached to a file: 
+```{r}
+var1 <- c(rnorm(200, 50, 20)) #Syntax: rnorm(n, mean, sd) (samples numbers from normal distribution)
+var2 <- c(rnorm(200, 50, 20))
+var3 <- c(rnorm(200, 50, 20))
+var4 <- c(rnorm(200, 50, 20))
+
+df <- data.frame(var1, var2, var3, var4)
+```
+
+# Basic statistical terms
+*Standard deviation* is a measure of dispersion of the data from the mean.
+
+    "Small standard deviations represented a scenario in which most data points were close to the mean, a large standard deviation represented a situation in which data points were widely spread from the mean" - Field
+   
+   
+    
+*Standard error of the mean* is a measure of how precise is our estimate of the mean. 
+
+    "it is a measure of how representative a sample is likely to be of the population. A large standard error (relative to the sample mean) means that there is a lot of variability between the means of different samples and so the sample we have might not be representative of the population. A small standard error indicates that most sample means are similar to the population mean and so our sample is likely to be an accurate reflection of the population" - Field
+
+
+
+*95% Confidence Interval*: when you see a 95% confidence interval for a mean, think of it like this: if we’d collected 100 samples, calculated the mean and then calculated a confidence interval for that mean then for
+95 of these samples, the confidence intervals we constructed would contain the true value of the mean in the population.
+
+
+
+# CONFIGURE SETUP CHUNK
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Load packages
+library(pacman)
+pacman::p_load(tidyverse,dplyr, data.table, vroom, ggplot2)
+
+#how to get citations from packages
+citation("examplePackage")
+```
+
+# LOAD DATA
+
+## Create custom data
+```{r}
+# Generate random numbers from normal distribution: rnorm(n, mean, sd)
+rnorm(100, 10, 2)
+c(rnorm(100, 10, 2)) # 'c' indicates that R should interpret values as vector
+
+# Create data set
+dftest <- tibble(x = c(1,2,3), y = c(4,5,6))
+rm(dftest)
+```
+
+
+## Single files
+```{r}
+# CSV files
+df <- read.csv("filename from folder e.g. data.csv") #tidyverse: Use read_csv
+
+# XLS (and other) files
+library("readr")
+readr::read_delim() # and specify (delim = "\t"), when doing so, we specify that as separator (change if file is comma seperated etc)
+df <- read_delim("data.xls", delim= "\t")
+```
+
+## Multiple files
+```{r}
+library("vroom")
+#1 create a data directory path pointing to data
+datadir<-"/Users/rikkeuldbaek/Desktop/Cognitive Science/3rd semester/Perception & Action/Eye-tracking workshop/Data Cleaning/Search_Count_Task"
+
+#2 create a list of specific files ending on "*.xls"
+files_saccades <- list.files(datadir,pattern='*.xls',full.names=TRUE)
+
+#merge all specific files into df
+saccades <- vroom(files_saccades)
+
+# COMBINE existing data sets by word
+df2 <- df2 %>% inner_join(df1)
+
+# R BIND - combines df's by row
+newdf <- rbind(df1, df2)
+
+# C BIND - combines df's by column
+newdf <- cbind(df1, df2)
+
+```
+
+## Save files
+```{r}
+write.csv(data, file = "combined_logfiles.csv")
+```
+
+
+# VIEW DATA SET
+
+## Overview of whole dataset
+```{r}
+# View variables, their classes etc
+df %>% 
+  str
+
+# Basic statistical info of every variable
+summary(df)
+
+# Lists all variable names alphabetically
+ls(df)
+list(df) # Lists all variables, but in the order the occur in the df
+```
+
+## Overview of single variables
+```{r}
+# Basic info about variables
+levels(df$var1)
+class(df$var1)
+unique(df$var1)
+
+# Column names
+colnames(df)
+ls(df)
+
+# Check mean, sd, median, var, skew, kurtosis of specific variables
+round(pastecs::stat.desc(df$var1, basic = FALSE, norm = TRUE), digits = 2)
+round(pastecs::stat.desc(cbind(Variable1 = df$var1, Variable2 = var2), basic = FALSE, norm = TRUE), digits = 2)
+
+# Table especially useful for categorical variables. Or if you want to see how many TRUE or FALSE there are in variable. Or number of NA's. Etc. etc.
+table(df$var1)
+table(is.na(df$var1))
+
+# VISUAL DISTRIBUTION quick view
+hist(df$variable)
+
+## histogram of something in 1 condition and another
+hist(Saccades[Saccades$Task =="Search",]$Amplitude)# histogram of the amplitude in the search condition
+hist(Saccades[Saccades$Task =="Count",]$Amplitude) #histogram of the amplitude in the count condition
+
+```
+
+
+# PREPROCESSING / TRANSFORMING
+
+## Cleaning
+```{r}
+# DELETE a variable
+df <- df %>% select(!var1)
+
+# RENAME variable
+rename(df, new_name = old_name)
+
+# Clean variables- Keep only the variables needed and drop the rest! 
+df <- df %>% 
+  select(
+    ParticipantID= "RECORDING_SESSION_LABEL", #new var-name = "current var-name"
+    Trial= "TRIAL_INDEX",
+    Time= "IP_START_TIME",
+    LeftGazeX= "LEFT_GAZE_X",
+    LeftGazeY= "LEFT_GAZE_Y",
+    RightGazeX= "RIGHT_GAZE_X",
+    RightGazeY= "RIGHT_GAZE_Y",
+    LeftPupilSize= "LEFT_PUPIL_SIZE",
+    RightPupilSize= "RIGHT_PUPIL_SIZE",
+    Order,
+    Task
+    ) 
+
+# Create new variable based on info from existing variables with an IF ELSE
+df$var5 <- (ifelse(df$var1 <= 50, "under fifty","fifty or over fifty"))
+# Nested ifelse statements, coool
+df$var6 <- (ifelse(df$var1 < 50 & df$var1 > 40 ,"between 40 and 50",
+                        ifelse(df$var1 < 40 | df$var1 > 50, "over 50 or under 40",NA))) # The NA will fill in every value that is not defined by the statements
+
+# Remove unwanted punctuations etc from variables
+df$stimulus <- gsub('[[:punct:] ]+','', df$stimulus)
+sample$LeftGazeX <- as.numeric(gsub(",",".",sample$LeftGazeX))
+gsub("current element we want to change", "substituting element", df$variable)
+
+# GROUPBY() Making changes on portion of data 
+dfnew <- df %>% 
+  select(var1, var3, var5) %>% 
+  group_by(var3) %>% 
+  mutate(var3 = mean(var1))
+
+df %>%
+	group_by(Task) %>%
+	summarise(mean_pupilsize = mean(PupilSize))
+
+# FILTER()
+Samples <-  Samples %>% 
+  filter(
+    PositionX<= 1680, #filter alt fra der er under eller lig med 1680
+    PositionY<= 1050,#filter alt fra der er under eller lig med 1050
+    PositionX>=0,#filter alt fra der er over eller lig med 0
+    PositionY>=0#filter alt fra der er over eller lig med 0
+  )
+
+# SELECT() selects something specific, you can then do stuff with
+select(variable, starts_with("a"))
+select(iris, ends_with(".xls"))
+select()
+select(df,3:4)# Select 3rd and 4th columns of the dataframe
+select(mydata,matches("di")) # Select on columns names of the dataframe which matches
+
+# Assigning NA's to a X variables in a vector
+df[df==0] <- NA
+df$variable[df$variable=="."] <- NA #replace "." with NA
+```
+
+
+## Transforming
+Some data mining algorithms and statistical methods require that the variables be normally distributed.
+
+Typical transforming methods are:
+    1. *Log transformation*
+        Good against positive skew or Unequal variances. Limmits: Can’t deal with negative numbers
+    2. *Square root transformation*
+        Good for positive skew or Unequal variances. Limits: Bigger effect than log(), still can’t deal with negative numbers
+    3. *Reciprocal transformation*
+        Good against positive skew - Unequal variances. Limits: Reduces large scores, good for negative numbers, but reverses scores
+    4. *min/max normalization*
+        Min-max normalization works by seeing how much greater the field value is than the minimum value min(X), and scaling this
+        difference by the range
+    5. *Z-score !standardization!* (not really a transformation tool, but standardization (good for detecting outliers))
+        Very widespread in the world of statistical analysis. Works by taking the difference between the field value and the field mean
+        value, and scaling this difference by the standard deviation of the field values. Z-score standardization has no effect on
+        skewness
+    6. *Inverse square root transformation*
+    
+
+Transforming in R              
+```{r}
+# SQRT root transformation
+sqrt(df$var1)
+
+# LOG transformation transformation
+log(df$var1)
+
+# Reciprocal transformation
+1/df$var1
+
+# Min/max transformation
+## Doing it manually
+df$var1_min.max <- (df$var1 - min(df$var1))/(max(df$var1) - min(df$var1))
+## min/max normalization of all variables 1-3
+  for (i in 1:3) {
+  mindf = min(df[,i])
+  maxdf = max(df[,i])
+  df[,i] = (df[,i] - mindf)/(maxdf-mindf)
+}
+
+# Z-score transformation transformation
+## doing z-transformation manually
+cars$ztt60 <- (cars$time.to.60 - mean(cars$time.to.60))/sd(cars$time.to.60)
+## Doing it using scale (which does the same as ^)
+cars$ztscale <- scale(cars$time.to.60, center=TRUE, scale=TRUE)
+
+# Inverse square root transformation
+1 / sqrt(df$var1)
+
+```
+
+## Normality check
+Understanding the statistic of a Shapiro-Wilk test of normality (normtest.W) and its associated probability (normtest.p):
+    *If the test is non-significant (p>.05) it tells us that the distribution of the sample is not significantly different from a normal distribution (i.e. it is NORMAL). If, however, the test is significant (p < .05) then the distribution in question is significantly different from a normal distribution (NOT NORMAL).*
+```{r}
+# stat.desc function outputs data which tells us if variables are breaking assumptions
+round(pastecs::stat.desc(cbind(Variable1 = df$var1, sqrt_Variable1 = sqrt(var1), sqrt_Variable1 = sqrt(var1), sqrt_Variable1 = sqrt(var1)), basic = FALSE, norm = TRUE), digits = 2)
+```
+
+
+## Sanity check
+```{r}
+## Check distribution of raw samples. Is everything alright? Check it visually!!
+hist(df$variable)
+
+## numeric inspection
+summary(df$variable)
+
+## histogram of something in 1 condition and another
+hist(Saccades[Saccades$Task =="Search",]$Amplitude)# histogram of the amplitude in the search condition
+hist(Saccades[Saccades$Task =="Count",]$Amplitude) #histogram of the amplitude in the count condition
+```
+
+
+# VISUALIZING
+
+## Saving a ggplot
+Saving ggplot (into your working directory)
+```{r}
+plot1 <- ggplot(df, aes(x=shoesize)) + geom_bar() #write a plot down
+ggsave("myggplot.png")  # saves the last plot.
+ggsave("mystoredggplot.png", plot=plot1)  # save a stored ggplot
+```
+
+## Correlation plots (heatmap)
+```{r}
+# a heatmap: Shows correlation visually
+library(reshape2)
+qplot(x=Var1, y=Var2, 
+      data=melt(cor(df, use="p")), 
+      fill=value, 
+      geom="tile") +
+   scale_fill_gradient2(limits=c(-1, 1))
+```
+
+## Histograms
+Histograms can be used to inspect distributions in your data 
+X-axis represents the different values in your variable 
+Y-axis represents
+  – counts (how many times does this value occur?)
+  OR
+  - density (what percentage of the total data has this value?) 
+```{r}
+#Histogram overlapping
+data <- data.frame(
+  a = df$balloon,
+  b = df$balloon_balance
+)
+
+ggplot(data, aes(x=x) ) +
+  geom_histogram( aes(x = a), fill = "green", alpha = 0.2) +
+  geom_label( aes(x=4.5, y=0.25, label="Balloon"), color="green") +
+  geom_histogram( aes(x = b), fill= "red", alpha = 0.2) +
+  geom_label( aes(x=4.5, y=-0.25, label="Balloon Balance"), color="red")
+
+#Histogram x2, comparing distribution
+
+balloon_balance2 <- ggplot(df, aes(balloon_balance)) +
+geom_histogram(aes(y = ..density..), colour = "black", fill = "white") + stat_function(fun = dnorm, args = list(mean = mean(df$balloon_balance),
+sd = sd(df$balloon_balance)), colour = "red", size = 1) + theme_bw()
+
+balloon2 <- ggplot(df, aes(balloon)) +
+geom_histogram(aes(y = ..density..), colour = "black", fill = "white") + stat_function(fun = dnorm, args = list(mean = mean(df$balloon),
+sd = sd(df$balloon)), colour = "red", size = 1) + theme_bw()
+
+library(gridExtra)
+
+grid.arrange(balloon2, balloon_balance2)
+```
+
+## Barplots
+Beware that barplots has limitations; 
+They be easily manipulated to yield false impressions, fail to reveal key assumptions, causes, effects, or patterns.
+```{r}
+#Basic barplot
+ggplot(df, aes(x=gender, y=breathhold, fill=gender))+
+geom_bar(stat = 'summary', fun = mean, width = 0.25, fill = 'green') +
+  ggtitle("Bar plot")
+
+
+#making bar plots with errorbars
+audition %>% 
+  ggplot(., aes(x=congruency, y=rt, fill=congruency))+
+  geom_bar(stat = "summary", fun.y = mean)+
+  geom_errorbar(stat = "summary", fun.data = mean_se, width = 0.2) +
+  labs(x = "Congruency",
+   y = "Reaction Time",
+  title = "Plot 2.1: Mean RT based on congruency")+guides(fill=FALSE)
+  
+#E.g barplot with added "layers"
+ggplot(df, aes(x=ocular_dom, y=breathhold, fill=ocular_dom))+
+  geom_bar(stat='summary', fun.y =mean, width = 0.4)+
+  geom_errorbar(stat = 'summary', fun.data = mean_se, width = 0.5)+
+  labs(x = "Ocular Dominance", y = "Breathhold")+
+  theme_minimal()+ ggtitle("Bar Plot") +
+  scale_fill_brewer(palette = "Blues")
+```
+
+## Boxplots
+```{r}
+#Basic boxplot
+ggplot(df, aes(x=gender, y=sound_level_pref))+
+  geom_boxplot(width = 0.5) +
+  ggtitle("Box Plot")
+
+#E.g. boxplot with layers
+ggplot(df, aes(x=gender, y=sound_level_pref , fill=gender))+
+  geom_boxplot(width = 0.5) +
+  ggtitle("Box Plot") +
+  stat_summary(fun = mean, geom = "point", shape = 23, colour = "Black") + 
+  geom_errorbar(stat = 'summary', fun.data = mean_se, width = 0.5)
+
+#Box plot - changing the labels on the side
+ggplot(df, aes(x = social_media, y = sleep_hours, colour = social_media)) +
+  geom_boxplot(width = 0.5) +
+  ggtitle("Hours of sleep by last social media used")+
+  stat_summary(fun.y = mean, geom = "point", shape = 23, colour = "Black") +
+  scale_color_manual(name="Social media",labels=c("Facebook", "Instagram", "No phone", "Other", "What's app"), values=c("red", "orange", "green", "dodgerblue", "maroon1")) +
+  labs(x = "Social media", y = "Hours of sleep") +
+  theme_minimal()+
+  theme(axis.text.x= element_text(angle=90))#turning the angle 90 degrees
+```
+
+## Violinplot
+```{r}
+#Basic violin plot
+  ggplot(subset(df,ocular_dom != "Both"), aes(x=ocular_dom, y=breathhold, fill= ocular_dom))+
+geom_violin() +
+  ggtitle("Violin Plot") 
+
+#E.g. Violinplot with layers
+ggplot(subset(df, ocular_dom != "Both"), aes(x=ocular_dom, y=breathhold, fill=ocular_dom))+
+ geom_violin() +
+  ggtitle("Violin Plot")+
+  stat_summary(fun = mean, geom = "point", shape = 23, colour = "Black") 
+```
+
+##Scatterplots
+```{r}
+#Basic Scatterplot
+ggplot(df, aes(x=tongue_twist, y=breathhold, colour = gender))+
+  geom_point(geom = "point", shape = 19)+
+  geom_smooth(method ="lm")
+
+#E.g. Scatterplot with a few more layers
+ggplot(df, aes(x=sound_level_pref, y=hours_music_per_week , fill=gender))+
+  geom_point(geom = "point", shape = 23, colour = "red")+
+  geom_smooth(method ="lm")
+
+# method ="lm") makes the model linear (line straight) 
+# without the above function is makes a curly line, that may vary from participant to participant
+
+#same but without the confidence intervals around the line
+ggplot(df, aes(sound_level_pref, hours_music_per_week)) + 
+  geom_point() + 
+  geom_smooth(method = lm, se = FALSE) + #fit the best straight line to the data, don't show confidence intervals
+  ggtitle('Scatter plot with the regression line: geom_smooth without confidence intervals ')
+
+#Combined scatterplot
+ggplot(filter(data, ReactionTime < 10),aes(X1, ReactionTime, colour= Condition))+
+  geom_point(position= "jitter")+
+  geom_smooth(method="lm")+
+  facet_wrap(~Condition, nrow =2)+
+  geom_vline(xintercept = 58)+ #creates line on word 58
+  geom_vline(xintercept= 59)+
+  ggtitle("Reading Time pr Word - Condition 1 and 2 compared")
+```
+
+## QQ plots
+What is it for?
+Normal Q-Q Plot: This is used to assess if your residuals are normally distributed. basically what you are looking for here is the data points closely following the straight line at a 45% angle upwards (left to right). Again what to watch here is any patterns that deviate from this - particularly anything that looks curvilinear (bending at either end) or s shaped.
+
+SKEWNESS
+hvis den har en hale der varierer fra linjen, så er den enten right skewed (afviger i toppen af linjen) eller left skewed  (afviger i bunden af linjen).
+
+QQ-plot: but what is a quantile: 
+quantiles is just a generalization of median, quantile and percentile etc. 
+(forestil dig en normal distbribution, delt på midten,  midten er MEDIAN)(50% på en ene side / 50% på den anden)
+forestil dig en normaldistribution delt i fire, det er en quantile: 50% på den ene siden 50% på den anden, ud af hver 50% er de små områer 12,5 % (?)
+
+
+
+```{r}
+#Basic Q-Q plot
+ggplot(df, aes(sample = balloon)) + stat_qq() +
+stat_qq_line(colour = "red") +
+labs(x = "Sample Quantiles", y = "Balloon") + ggtitle("Q-Q Plot") +
+theme_bw()
+
+#E.g. Q-Q plot 2x, comparing distribution, by assigning them to a variable and using the function grid.arrange
+
+balloon <- ggplot(df, aes(sample = balloon)) + stat_qq() +
+stat_qq_line(colour = "red") +
+labs(x = "Sample Quantiles", y = "Balloon") + ggtitle("Q-Q Plot") +
+theme_bw()
+
+balloon_balance <- ggplot(df, aes(sample = balloon_balance)) + stat_qq() +
+stat_qq_line(colour = "red") +
+labs(x = "Sample Quantiles", y = "Balloon Balance") + ggtitle("Q-Q Plot") +
+theme_bw()
+
+grid.arrange(balloon, balloon_balance)
+
+# Tests the emperical, z-scored data against the theoretical, normally distributed data using qqnorm(data$column)
+## #qq-plot for residuals (normal qq plot for residuals)
+qqnorm(resid(model1))
+qqline(resid(model1))
+```
+
+
+# MODELLING
+## Linear regression
+## Multilevel regression
+## Mixed effects regressions
+## Logistic regression
+
+
+
+
