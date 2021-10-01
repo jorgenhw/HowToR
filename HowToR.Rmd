@@ -71,6 +71,9 @@ df <- read.csv("filename from folder e.g. data.csv") #tidyverse: Use read_csv
 library("readr")
 readr::read_delim() # and specify (delim = "\t"), when doing so, we specify that as separator (change if file is comma seperated etc)
 df <- read_delim("data.xls", delim= "\t")
+
+dat <- read.delim("/Users/WIBE/Desktop/cogSci/Business Intelligence/7./adult.txt",sep = ",", header = TRUE, stringsAsFactors = TRUE)
+
 ```
 
 ## Multiple files
@@ -157,6 +160,9 @@ df <- df %>% select(!var1)
 # RENAME variable
 rename(df, new_name = old_name)
 
+# Rename values in variable
+carsout$brand2[carsout$brand == " Europe."]  <-  "Europe"
+
 # Clean variables- Keep only the variables needed and drop the rest! 
 df <- df %>% 
   select(
@@ -213,6 +219,15 @@ select(mydata,matches("di")) # Select on columns names of the dataframe which ma
 # Assigning NA's to a X variables in a vector
 df[df==0] <- NA
 df$variable[df$variable=="."] <- NA #replace "." with NA
+
+# Find outliers
+## One way to do it, is to remove values that are more than three standard deviations away from the mean. This is easily done by z-standardizing values and then remove the values being more than three points away from mean on the z-scale.
+
+#Identidy outliers:
+# we want do identify cars below 900 pounds
+which(carsout$weightlbs < 990)
+carsout[c(228,258),]
+
 ```
 
 
@@ -238,8 +253,14 @@ Typical transforming methods are:
 
 Transforming in R              
 ```{r}
-# SQRT root transformation
+# sqrt() transformation
 sqrt(df$var1)
+# sqrt transforming multiple variables
+for (i in 1:7){ #sqrt transforming variables 1-7
+  varr <- sqrt(var(cars[,i]))
+  meann <- mean(cars[,i])
+  cars[,i] <- cars[,i]-meann/varr
+}
 
 # LOG transformation transformation
 log(df$var1)
@@ -827,14 +848,221 @@ ResStdDev_all <- tibble(sigma_model1 = sigma(model1),
 
 
 # MACHINE LEARNING
+Machine learning is an umbrella term for many different tools. These tools can largely be divded into 
+*supervised methods* (k-nearest neighbour)
+*unsupervised methods* (neural networks)
 
-## K-nearest neighbour
+## Test and training sets
+```{r}
+#another way to create test and train set
+set.seed(1)
+samp <- sample(1:25000,25000*0.75) #Take 75% of data = 18750 values between 1 - 25000 (the df which we want to partition has 25000 rows in all).
+
+training2 <- dat[samp,] # take 75% of the df 'dat' and put into train
+test2 <- dat[-samp,] # take 25% and put into test.
+
+ls.str(test2)
+ls.str(training2)
+```
+
+
+## Classification
+Classification is probably the most common data mining task
+*Examples*
+    Banking: determine whether a mortgage application is good
+    Education: place a student into a particular track with respect to special needs
+Classification is a *supervised method* and includes two or more classes for the categorical target variable
+*K-nearest neighbour* is a common classification method.
+
+## K-nearest neighbour (classification)
+k-Nearest Neighbor is used most often for classification, although it is also applicable to estimation and prediction tasks.
+*!* Continuous data values should be normalized using Min- Max Normalization or Z-Score Standardization so that the output remains unbiased
+    Using min-max: Values lie in the range [0, 1]
+    Using Z-Score Standardization, most values are typically contained in the range [-3, 3]
+*Beware* that different normalization methods may results in different classifications!
+
+k-Nearest neighbor is an example of instance-based learning, in which the training data set is stored, so that a classification for a new unclassified record may be found simply by comparing it to the most similar records in the training set.
+
+KNN is a _non-parametric model_ which means that it does not make any assumptions about the data set
+
+```{r}
+library(class) #class is the package used to run the KNN algorithm
+
+new <- c(0.05,0.25)
+A <- c(0.0467, 0.2471)
+B <- c(0.0533, 0.1912)
+C <- c(0.0917, 0.2794)
+
+data <- rbind(A, B, C)
+
+dimnames(data) <- list(c("Dark", "Medium", "Medium"), 
+                       c("Age (MMN)", "Na/K (MMN)")) # Declare true classifications of A, B, and C 
+trueclass <- c("Dark", "Medium", "Medium")
+
+```
+
+Running k-Nearest neighbour (KNN)
+    One of the ways to find the optimal K value is to calculate the square root of the total number of observations in the data set. This square root will give you the ‘K’ value.
+```{r}
+# find optimal k value
+NROW(train_dataset) 
+# say that length was 700, then we say sqrt(700) = 26.45; k = 26
+
+knn(data, new, cl = trueclass, k = 3, prob = TRUE)
+
+#another example:
+knn.26 <- knn(train=train.loan, test=test.loan, cl=train.loan_labels, k=26) # cl = the true values 
+
+
+```
+
+Model evaluation
+```{r}
+#Calculate the proportion of correct classification for k = 26
+ACC.26 <- 100 * sum(test.loan_labels == knn.26)/NROW(test.loan_labels)
+```
+
+check the predicted outcome against the actual value in tabular form:
+```{r}
+# Check prediction against actual value in tabular form for k=26
+table(knn.26 ,test.loan_labels)
+```
+
+We can also make a confusion matrix, to check accuracy of model
+```{r}
+library(caret)
+confusionMatrix(table(knn.26 ,test.loan_labels))
+```
+
+
+Calculate Euclidian distance (optimal)
+     It just simply means the distance between two points in a plane
+```{r}
+install.packages("fields") library(fields)
+together <- rbind(new, data) # The top row of rdist are the # distance values from New rdist(together)
+
+# Stretch the axes
+ds_newA <- sqrt((new[1] -A[1])^2 + (3*(new[2]-A[2]))^2) 
+ds_newB <- sqrt((new[1] -B[1])^2 + (3*(new[2]-B[2]))^2) 
+ds_newC <- sqrt((new[1] -C[1])^2 + (3*(new[2]-C[2]))^2)
+
+```
+
 
 ## Neural networks
 
+Turning categorical variables into *flag variables* (necessary for the NN to function)
+```{r}
+# Turning the categorical variable 'hotel' into a flag variable
+hotel <- data.frame(Reduce(cbind, 
+     lapply(levels(jürgens_df$hotel), function(x){(jürgens_df$hotel == x)*1})
+))
+names(hotel) = levels(jürgens_df$hotel)
+
+# Meal
+meal = data.frame(Reduce(cbind, 
+     lapply(levels(jürgens_df$meal), function(x){(jürgens_df$meal == x)*1})
+))
+names(meal) = levels(jürgens_df$meal)
+
+# Adding flag var's to df
+jürgens_df <- cbind(jürgens_df, hotel,meal) #syntax: cbind(your_df, your_flagged_variable)
+
+#removing variables which were made into flag-variables
+rm(hotel,meal)
+
+#REMEMBER to min/max normalize flag variables (again, for the NN to function properly). Also min/max all other numerical variables.
+# min/max normalizing
+for (i in c(2:43)) {
+  minjürgens_df = min(jürgens_df[,i])
+  maxjürgens_df = max(jürgens_df[,i])
+  jürgens_df[,i] = (jürgens_df[,i] - minjürgens_df)/(maxjürgens_df-minjürgens_df)
+}
+```
+
+Making test/training data set 
+```{r}
+# Making a test data set (30%test,70%training)
+set.seed(1)
+dt = sort(sample(nrow(jürgens_df), nrow(jürgens_df)*.7))
+
+train<-jürgens_df[dt,]
+test<-jürgens_df[-dt,]
+
+```
+
+Running neural network
+```{R}
+# neural net of all numerical values in df (without flagged variables)
+nn1 <- nnet(train$is_cancelled~., data = train, size=10) # training the neural network on my training set: I ask it to predict the categorical variable 'is_cancelled' based on all the predictors (.) in the df.
+
+est_isCancelled <- predict(nn1, test, type = 'class') # Checking how the neural network does at predicting values from the test df
+
+tabNn1 = table(test$is_cancelled,est_isCancelled)
+
+tabNn1
+
+# Calculating the performance of the neural network:
+
+# Accuracy
+(20726+8150)/35817 # = 80.6% accuracy
+
+# Sensitivity
+8150/(5128+8150) # = 0.61
+
+# Specificity
+20726/(20726+1813) # = 0.92
+```
+
+*IMPORTANT*
+To assess which variable had the greatest impact on the outcome variable (in this case 'is_cancelled') we can run a _sensitivity analysis_.
+```{r}
+source('https://gist.github.com/fawda123/6860630/raw/e50fc6ef30b8269660b4e65aeec7ce02beb9b551/lek_fun.r') #sort of like referring to a package
+
+#Sensitivity analysis on all variables
+all_variables <- lek.fun(nn1)
+
+all_variables
+```
+
+
 ## Clustering
 
-# SOCIAL NETWORK ANALYSIS (SNA)
+# COOL TOOLS (BI)
+
+## Cross validation
+
+## Decision trees
+
+## Social network analysis (SNA)
+
+## Web scraping
+Scrape data from practically any website. 
+Use the plugin 'SelectorGadget' in Chrome: Insert the CSS values you find via the plugins in the below code
+```{r}
+library(rvest)
+
+url <- 'https://www.imdb.com/search/title/?count=100&release_date=2017,2017&title_type=feature'
+
+webpage <- read_html(url)
+
+#scraping rank
+rank_data_html <- html_nodes(webpage, '.text-primary')
+rank_data <- html_text(rank_data_html)
+rank_data <- as.numeric(rank_data)
+
+#titles
+title_data_html <- html_nodes(webpage, '.lister-item-header a')
+title_data <- html_text(title_data_html)
+
+# Clean variables
+title_data <- gsub("\n","",title_data) #gsub removes \n and inserts "" instead
+
+# Combine values in a df
+df <- tibble(rank_data, title_data)
+
+```
+
 
 
 
