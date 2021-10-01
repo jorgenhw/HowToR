@@ -390,6 +390,13 @@ partial_correlation^2
 #to see the significance of the partial correlation, do a pcor.test
 pcor.test(partial_correlation, 1, 44)
 
+##### Highlight only the 'worrying' correlation values
+#plot only values above .7
+plot_df <- melt(cor(df))
+plot_df$value[plot_df$value < 0.7 & plot_df$value > - 0.7] = 0
+qplot(x=Var1, y=Var2, data=plot_df, fill=value, geom="tile") +
+   scale_fill_gradient2(limits=c(-1, 1))
+
 ```
 
 # BOOT STRAPPING
@@ -684,9 +691,163 @@ ggplot(transformed_data, aes(x = ID, y = rt_rec, colour = ID)) +
 
 ```
 
-
+## Reporting t-test
+Example: *Using an independent t-test, we found that the unexpected word did not significantly increase the average reading time of a word, t(7.66) = 0.46, p > .05, r = 0.16, (M exp = 0.45, M unexp = 0.49)*
 
 # MODELLING
+
+## Assumptions of regression
+
+*Multicollinearity*
+!!!**basically ik put noget i din model der correlater med hinanden, så som tømmermænd og forelæsning, begge dele gør dig træt**!!!!
+
+However, you should still keep in mind that if you add two predictors that are highly correlated, the estimates of your regression will become hard to interpret and unstable. 
+Intuitively, this makes a lot of sense: If multiple predictors are very similar to each other, then it becomes very difficult to decide what, in fact, is playing a big role.
+
+Therefore, make sure you always check correlation between your predictors!
+
+You can check how all of variables in your data are correlated with each other by running cor() function on the entire dataset. High correlation coefficients (e.g. over 0.7) are worrying and indicate that it might be better not to include such correlated predictors in the same model together. To make it easier to see, round up the results to 2 decimal points using round() function:
+
+OR make heatmap 
+You can make it even easier by displaying the correlation matrix of all predictors as a heatmap.
+
+From the author of this code:
+"*What is going on?*
+- cor makes a correlation matrix with all the pairwise correlations between variables (twice; plus a diagonal of ones)
+
+- melt takes the matrix and creates a data frame in long form, each row consisting of id variables Var1 and Var2 and a single value
+
+- We then plot with the tile geometry, mapping the indicator variables to rows and columns, and value (i.e. correlations) to the fill colour.
+
+- In ggplot2, a scale that has a midpoint and a different colour in each direction is called scale_colour_gradient2, and we just need to add it. I also set the limits to -1 and 1, which doesn’t change the colour but fills out the legend for completeness. Done!"
+
+... After you've examined this, you just need to make sure that you don't put highly correlated predictors in the same model at the same time. In this case, it seems that Television and Parenting style variables are correlated more than others. Even though their correlation coefficient is below 0.7 (it's 0.53), you still might want to avoid putting those two together as predictors in a model.
+```{r}
+#1 check cor()
+cor(variable)
+round(cor(variable),digits= 2) #much better! but still hard...
+
+
+#2 heat map
+pacman::p_load(ggplot2, reshape2)
+
+#plot as heatmap
+qplot(x=Var1, y=Var2, 
+      data=melt(cor(df, use="p")), 
+      fill=value, 
+      geom="tile") +
+   scale_fill_gradient2(limits=c(-1, 1))
+
+
+
+##### Highlight only the 'worrying' correlation values
+#plot only values above .7
+plot_df <- melt(cor(df))
+plot_df$value[plot_df$value < 0.7 & plot_df$value > - 0.7] = 0
+qplot(x=Var1, y=Var2, data=plot_df, fill=value, geom="tile") +
+   scale_fill_gradient2(limits=c(-1, 1))
+
+
+```
+
+
+*Linearity* 
+It’s called “linear model” for a reason! 
+If data is NOT linear, a residual plot will indicate some kind of curve, or it will indicate some other pattern (e.g., two lines if you have categorical binary data).
+  -no patterns or curves  PLEASE!!!
+```{r}
+#residual plot 
+plot(model)
+
+```
+This is a residual plot. The fitted values (the predicted means) are on the horizontal line (at y=0). The residuals are the vertical deviations from this line. This view is just a rotation of the actual data (compare the residual plot with the scatterplot to see this).
+
+
+*Homoschedasticity*
+It says that the variability of your data should be approximately equal across the range of your predicted values (we want equal variances). If homoscedasticity is violated, you end up with heteroskedasticity, or, in other words, a problem with unequal variances.
+- look at the plot "residuals VS fitted"
+    - WE WANT A CLOUD OF DOTS!
+
+```{r}
+#make residual plot
+plot(model)
+
+#ideal plot with homoschedasticity looks like this
+plot(rnorm(100),rnorm(100))
+
+```
+
+*Normality of residuals*
+.. the least important.. it turns out that linear models are relatively robust against violations of the assumptions of normality. 
+.. according to LAU this is a subject matter.. 
+
+How to check it? 
+- histograms and qq-plot of model
+```{r}
+#histogram of model
+hist(residuals(model)) #bell shaped =normal
+
+# Q-Q plot of model
+qqnorm(residuals(model)) #dots fall in a line = normal
+
+
+```
+
+
+*Absence of influential data points* 
+not really an assumption mby, but influential data points can drastically change the interpretation of your results, and similar to collinearity, it can lead to instable results.
+
+How to check it? 
+```{r}
+#this function:
+dfbeta(model)
+
+summary(model)
+```
+
+For each coefficient of your model (including the intercept), the function gives you the so-called DFbeta values. These are the values with which the coefficients have to be adjusted if a particular data point is excluded (sometimes called “leave-one-out diagnostics”).
+
+[E.g] = let’s look at the age column in the data frame above. The first row means that the coefficient for age (which, if you remember, was -0.9099) has to be adjusted by 0.06437573 if data point 1 is excluded. That means that the coefficient of the model without the data point would be -0.9742451 (which is -0.9099 minus 0.06437573... if the slope is negative, DFbeta values are subtracted, if it’s positive, they are added).
+
+MOST IMPORTANT: 
+Any value that changes the sign of the slope is definitely an influential point that warrants special attention... because excluding that point would change the interpretation of your results.
+  - SO: eyeball the data for DFbetas and look for         values that are different by half of the absolute     value of the slope
+  - Say, my slope would be 2 ... then a DFbeta value         of 1 or -1 would be alarming to me. If it’s a         slope of -4, a DFbeta value of 2 or -2 would        be alarming to me.
+THEN WHAT? 
+  - justify deleting datapoints ?
+  
+  
+
+*Independence !!!!!!* 
+Independent measures design:
+(in contrary to repeated measures design, where each participant has multiple rows, e.g eye tracking data)
+Each row in the data set comes from a different subject and are independent from each other:
+e.g. Study 1
+Subject  Sex  Voice_Pitch
+1     female     233 Hz
+2     female     204 Hz
+3     female     242 Hz 
+4      male      130 Hz
+5      male      112 Hz
+6      male      142 Hz
+
+## Meeting assumptions
+
+*Problem of multicolinarity*
+1) remove corelating predictors
+- think about which one is the most meaningful and drop the others
+2) Consider dimension- reduction techniques such as Principal Component Analysis. These can transform several correlated variables into a smaller set of variables which you can then use as new fixed effects.
+
+
+*Problem of linarity-*
+1) ADD ANOTHER PREDICTOR
+You might miss an important fixed effect that interacts with whatever fixed effects you already have in your model. Potentially the pattern in the residual plot goes away if this fixed effect is added.
+
+2) TRANSFORMATION
+Another (commonly chosen) option is to perform a nonlinear transformation of your response, e.g., by taking the log-transform.
+You can also perform a nonlinear transformation of your fixed effects. So, if age were somehow related to pitch in a U-shaped way (perhaps, if very young people had high pitch and very old people had high pitch, too, with intermediate ages having a “dip” in pitch), then you could add age and age2 (age-squared) as predictors.
+
+3) Finally, if you’re seeing stripes in your residual plot, then you’re most likely dealing with some kind of categorical data – and you would need to turn to a somewhat different class of models, such as logistic models.
 
 ## Linear regression
 Reporting linReg
@@ -704,8 +865,16 @@ When reporting results for research question (do so for every predictor):
   standard error
   t value
   associated p-value
+
+*Formula for making a linear model*
+```{R}  
+#If you have more predictors, simply use "+" (then it becomes multilevel though)
+model <- lm(outcome ~ predictor, data = mydata)
+
+summary(model)
+```
   
-### Visualizing the linReg
+*Visualizing the linReg*
 ```{r}
 # The smart method
 ggplot(df, aes(Rating, Sugars))+
@@ -726,6 +895,37 @@ ggplot(df, aes(Rating, Sugars))+
 ```
 
 
+
+
+### Interpreting linReg
+
+### Reporting LinReg
+Example:
+```{r}
+#make a linear model
+m <- lm(Aggression ~ Television, child)
+
+#see results of fitting the model
+summary(m)
+```
+OUTPUT:
+
+    Coefficients:
+                  Estimate Std. Error t value Pr(>|t|)    
+    (Intercept) -0.0005046  0.0122778  -0.041    0.967    
+    Television   0.1634249  0.0395068   4.137 3.98e-05 ***
+
+    Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+    Residual standard error: 0.3156 on 664 degrees of freedom
+    Multiple R-squared:  0.02512,	Adjusted R-squared:  0.02365 
+    F-statistic: 17.11 on 1 and 664 DF,  p-value: 3.977e-05
+
+*Reporting simple regression*
+By looking at the output above, we could report the following result:
+
+"A linear regression analysis was used to test if the amount of television time significantly predicted children's ratings of aggression. Adjusting for the number of predictors, the results of the regression indicated that the predictor explained 2.36% of the variance in aggression metric (Adjusted R2 =.0236, F(1,664)= 17.11, p<.001). It was found that bigger amount of television significantly predicted aggressive tendencies (β = 0.1634, SE =0.0395, t = 4.137, p<.001)."
+
 ## Multilevel regression
 
 Recap basics
@@ -733,6 +933,7 @@ Recap basics
 ```{r}
 summary(lm(Rating ~ Sugars + Sodium, df))
 ```
+
 DO NOT USE PREDICTORS THAT CORRELATES TOGETHER (use cor tests):
 ```{r}
 round(cor(df),2)
@@ -748,8 +949,98 @@ qplot(x=Var1, y=Var2,
    scale_fill_gradient2(limits=c(-1, 1))
 ```
 
-## Mixed effects models
+### Interpreting
 
+### Reporting
+
+
+## Mixed effects models
+*fixed effects & random effects* 
+
+lmer= forventer at data er normal fordelt
+glmer = kan man specificere hvordan ens data ser ud (hvis ens data ikke er normalfordelt)
+
+EXAMPLE
+```{r}
+#packages required:
+pacman::p_load(lme4, tidyverse)
+
+#example:
+politeness= read.csv("http://www.bodowinter.com/tutorial/politeness_data.csv")
+
+#check data:
+#The difference in politeness level is represented in the column called “attitude”. In that column, “pol” stands for polite and “inf” for informal. Sex is represented as “F” and “M” in the column “gender”. The dependent measure is “frequency”, which is the voice pitch measured in Hertz (Hz). To remind you, higher values mean higher pitch.
+
+#Let’s look at the relationship between politeness and pitch by means of a boxplot:
+boxplot(frequency ~ attitude*gender,
+          col=c("white","lightgray"),politeness)
+
+#What do we see? In both cases, the median line (the thick line in the middle of the boxplot) is lower for the polite than for the informal condition. However, there may be a bit more overlap between the two politeness categories for males than for females.
+
+#making the model
+politeness.model = lmer(frequency ~ attitude +
+          gender + (1|subject) +
+          (1|scenario), data=politeness)
+summary(politeness.model)
+#comments: 
+
+#Random effects:
+# Groups   Name        Variance Std.Dev.#commenting SD (below)
+# scenario (Intercept) 219.5    14.81 #less variance than subjects
+# subject  (Intercept) 615.6    24.81 #more subject variance than pr trial^
+# Residual             645.9    25.41 # this is just the rest of epsilon
+#Number of obs: 83, groups:  scenario, 7; subject, 6
+
+
+#Fixed effects:
+#            Estimate Std. Error t value #t value is just "estimate"/SD
+#(Intercept)  256.846     16.116  15.938
+#attitudepol  -19.721      5.584  -3.532
+#genderM     -108.516     21.013  -5.164
+#when going from "informal" to "polite", the pitch hz goes down with -19 hz
+#when going from "female" to "male"  the pitch hz goes down with -108 hz
+
+
+#no p-values øv ://
+```
+
+### Interpreting
+... also with an interaction effect
+
+Output:
+    Formula: f0mn ~ gender * attitude + (1 | subject) + (1 | scenario)
+
+    Fixed effects:
+                        Estimate Std. Error       df t value Pr(>|t|)    
+    (Intercept)          254.193      9.654   19.823  26.330  < 2e-16 ***
+    genderM             -117.983     13.633   16.640  -8.654 1.46e-07 ***
+    attitudepol          -15.646      5.196  200.000  -3.011  0.00294 ** 
+    genderM:attitudepol    5.781      7.856  200.000   0.736  0.46263    
+
+The interaction term in the model says that Korean men's pitch is 5.885hz higher than women's (when adjusted for gender difference) meaning that men has a higher pitch when in a polite situation than women.
+
+*Explainer for myself*: 
+Pitch for kvinder når informal er gennemsnitligt 252.895 hz
+Pitch for mænd når informal er gennemsnitligt (252.895 - 112.054) = 140.841 hz
+Pitch for kvinder når polite, er: 252.895 -14.568. 
+Pitch for mænd når polite 252.895 - (- 112.054 - 14.568), = -127.622
+Interaction betyder, at attitude polite er 5.855 mindre for mænd end for kvinder. Dvs. at mænd taler med "5 hz" mindre end kvinder (korrigeret for køn) når de taler er i en polite situation.
+
+### Reporting
+
+Output: 
+Formula: Reaction ~ Days + (1 + Days | Subject)
+Fixed effects:
+            Estimate Std. Error      df t value Pr(>|t|)    
+(Intercept)  251.405      6.632  18.001  37.907  < 2e-16 ***
+Days          10.467      1.502  18.000   6.968 1.65e-06 ***
+
+*Reporting*
+  “We used R (R Core Team, 2019) and lmerTest (Kuznetsova, Brockhoff and Christensen, 2017) to perform a linear mixed effects analysis of the relationship between sleep deprivation and reaction time. As fixed effects, we entered the number of days subjects have been lacking sleep into the model. As random effects, we had intercepts for subjects, as well as by-subject random slopes for the effect of the number of days. The model was built using the following syntax:
+ 
+ Reaction ~ Days + (1 + Days | Subject) 
+ 
+ Both fixed and random effects accounted for roughly 80% of variance in the reaction time variable. Visual inspection of residual plots did not reveal any obvious deviations from homoscedasticity or normality. Reaction time has been found to significantly be modulated by number of days of sleep deprivation, β = 10.467, SE = 1.502, t = 6.968, p < .001”
 
 ## Logistic regression
 
@@ -780,6 +1071,17 @@ MuMIn::r.squaredGLMM(model3) #R2c = 0.7899229
 ```{r}
 anova(fit2, fit3, fit4)
 ```
+
+Reporting ANOVA:
+    Output:
+    Fit: aov(formula = happiness ~ country, data = happy_low)
+
+    $country
+                          diff        lwr         upr     p adj
+    Finland-Denmark -0.1430671 -0.2248112 -0.06132291 0.0001234
+    Syria-Denmark   -4.4564207 -4.5381649 -4.37467656 0.0000000
+    Syria-Finland   -4.3133536 -4.3950978 -4.23160949 0.0000000
+  **“There was a significant effect of the country on happiness of the population F(2, 2997) = 10112, p < .001. The Tukey’s HSD correction post hoc tests revealed that the happiness of population was significantly lower in Syria than in both Denmark and Finland (both p < 0.001). The happiness levels in Denmark and Finland were also found to be significantly different but to a lesser extent than compared to each country's comparison to Syria (p < 0.05)**
 
 ## aov
 When we have more than three groups we want to compare with each other, we perform ANalysis Of VAriance (ANOVA). 
@@ -1028,13 +1330,224 @@ all_variables
 
 ## Clustering
 
+```{R}
+library(cluster)
+
+#data
+data <- c(1, 2, 3, 5, 8, 13, 21, 34, 55, 89)
+
+# *Single-Linkage* Clustering (agnes = agglomorative clustering)
+agnes_single <- agnes(data, diss = FALSE, stand = FALSE, method = "single")
+
+# Make and plot the dendrogram. This is a general tree structure, and is gonna show how the clusters form
+dend_agnes_single <- as.dendrogram(agnes_single) 
+
+plot(dend_agnes_single,
+xlab = "Index of Data Points",
+ylab = "Steps",
+main = "Single-Linkage Clustering")
+text(1:10, 1, labels = data) #adding the labels to the clusters
+axis(1, at = 1:length(data), labels = data) # also add labels, but in a smarter way
+
+#### another way of doing single linkage clustering
+data_dist <- dist(data)
+cluster <- hclust(data_dist, method="single") # change "complete" to "single" to change method
+plot(cluster, labels = data)
+
+rect.hclust(cluster,
+  k = 3, # k is used to specify the number of clusters
+  border = "blue"
+)
+
+# Complete-Linkage Clustering
+agnes_complete <- agnes(data, diss = FALSE,
+stand = FALSE,
+method = "complete")
+# Make and plot the dendrogram dend_agn_complete <-
+dend_agnes_complete <- as.dendrogram(agnes_complete) 
+
+plot(dend_agnes_complete,
+xlab = "Index of Data Points",
+ylab = "Steps",
+main = "Complete-Linkage Clustering")
+text(1:10, 1, labels = data) #adding the labels to the clusters
+axis(1, at = 1:length(data), labels = data) # also add labels, but in a smarter way
+
+```
+
+
 # COOL TOOLS (BI)
 
 ## Cross validation
 
 ## Decision trees
 
+```{r}
+library(pacman)
+p_load(rpart,rpart.plot,C50,tidyverse)
+```
+
+**Standardize numeric variables** ; z-standarizing
+```{r}
+dat$education.num.z <- (dat$education.num - mean(dat$education.num))/sd(dat$education.num) 
+```
+
+*Use predictors to classify whether someones income is > or < $50k*
+Using CART decision tree
+```{r}
+# For the CART decision tree, each decision node has to be binary
+cartfit <- rpart(income ~ age.z + education.num.z + capital.gain.z + capital.loss.z + hours.per.week.z + race + sex + workclass + marital.status, data = dat, method = "class") #After each line, the percentage of chance going 'left or right' is shown in parenthesis. 
+```
+Plotting decision tree
+```{r}
+rpart.plot(cartfit)
+```
+
+##########################
+
+```{r}
+cr <- read.csv("data/CreditRiskTraining01(1).csv")
+cr
+
+library(rpart)
+mytreeCR <- rpart(CreditRisk~Savings+Assets+Income, data=cr, method="class", control=rpart.control(minsplit=1))
+mytreeCR_uninteresting <- rpart(CreditRisk~Savings+Assets+Income, data=cr, method="class")
+
+mytreeCR
+
+plot(mytreeCR)
+plot(mytreeCR_uninteresting)
+
+text(mytreeCR, use.n = TRUE, all = TRUE, pretty = 0, xpd = TRUE, pos=1, offset=0.9) #out of the eight at the top, 5 are good and three are bad. 6 go to the right side and 1 is bad and 5 is good. The "good" or "bad" refers to the majority of the classifications.
+
+
+```
+Understanding the text output of the decision tree (NEEDS FURTHER INVES)
+2) If assets = low, you go down the left side. If there are non you terminate.
+3) if savings = high, we go down another branch
+
+```{r}
+pacman::p_load(rattle, rpart.plot, RColorBrewer, rpart)
+fancyRpartPlot(mytreeCR, caption = NULL)
+```
+
+
 ## Social network analysis (SNA)
+
+CREATING AN ADJACENCY MATRIX
+```{r}
+adjm1 <- matrix(c(0), nrow=5, ncol=5) # Creating an empty matrix without names and values.
+
+adjm1
+
+rownames(adjm1) <- c("A","B","C","D","E")
+colnames(adjm1) <- c("A","B","C","D","E")
+
+adjm1
+
+# Assigning values to the entries of the matrix
+adjm1[1,2] <- 1
+adjm1[2,1] <- 1
+adjm1[2,3] <- 1
+adjm1[3,2] <- 1
+adjm1[2,4] <- 1
+adjm1[4,2] <- 1
+adjm1[5,2] <- 1
+adjm1[2,5] <- 1
+adjm1[3,4] <- 1
+adjm1[4,3] <- 1
+adjm1[5,4] <- 1
+adjm1[4,5] <- 1
+
+adjm1
+```
+
+Create rows - then combine rows
+```{r}
+S1 <- c(0,0,1,0,1,0)
+S2 <- c(0,0,1,1,1,0)
+S3 <- c(0,0,1,1,1,0)
+S4 <- c(0,0,1,1,1,0)
+S5 <- c(0,0,1,1,1,0)
+S6 <- c(0,0,1,1,1,0)
+
+matrix <- rbind(S1,S2,S3,S4,S5,S6)
+colnames(matrix) <- c("S1","S2","S3","S4","S5", "S6")
+matrix
+```
+
+Getting started for real
+```{r}
+install.packages("igraph")
+library(igraph)
+
+help("graph_from_adjacency_matrix") # creates graph from an adjacency matrix
+
+g1 <- graph_from_adjacency_matrix(adjm1, mode=c("undirected"))
+plot(g1)
+
+```
+
+# Example A fully connected network
+New adjacency matrix - a fully connected node. Every node is connected to any other nodes. Therefore, it is a star shape
+
+```{r}
+
+adjm2 <- matrix(c(1),nrow=5,ncol=5) # matrix where the values are all 1's
+clet5=c("A","B","C","D","E")
+rownames(adjm2) <- clet5
+colnames(adjm2) = clet5
+adjm2
+
+# Getting rid of the 1's in the diagonal
+for (i in 1:5) {
+  adjm2[i,i]=0
+  
+}
+adjm2
+
+g2 <- graph_from_adjacency_matrix(adjm2, mode=c("undirected"))
+plot(g2)
+
+```
+
+
+# Degree: The number of adjacent edges
+```{r}
+help(degree)
+d1 <- degree(g1)
+d1
+d2 <-  degree(g2)
+d2
+
+adjm1
+adjm2
+
+# degree on adjm2 
+# adj matrix 1 
+```
+
+# Closeness: centrality and betweenness
+```{r}
+help(betweenness)
+
+# Closeness
+c1 <- closeness(g1)
+c2 <- closeness(g2)
+
+c1
+c2
+
+# Betweenness
+b1 <- betweenness(g1)
+b2 <- betweenness(g2)  
+
+b1 # A is not in between anyone else, therefore 0. But B has the highest betweenness-centrality (3.5) - it is crucial to connect several points. 
+
+b2 # betweenness are all zero, because ALL nodes are adjacent( connected to all other nodes). No nodes would need to walk through any other nodes to get to a third node. 
+
+```
+
 
 ## Web scraping
 Scrape data from practically any website. 
