@@ -266,6 +266,12 @@ cars$ztscale <- scale(cars$time.to.60, center=TRUE, scale=TRUE)
 # Inverse square root transformation
 1 / sqrt(df$var1)
 
+# Combining several transformations
+df <- df %>% 
+  mutate(rt_log = log(Reaction_Time),
+         rt_sqrt = sqrt(Reaction_Time),
+         rt_rec = 1/Reaction_Time)
+
 ```
 
 ## Normality check
@@ -289,6 +295,105 @@ summary(df$variable)
 hist(Saccades[Saccades$Task =="Search",]$Amplitude)# histogram of the amplitude in the search condition
 hist(Saccades[Saccades$Task =="Count",]$Amplitude) #histogram of the amplitude in the count condition
 ```
+
+
+# CORRELATION TEST
+
+To compute basic correlation coefficients there are three main functions that can be used: cor(), cor.test() and rcorr(). 
+
+```{r}
+#######Correlation coefficient:
+cor(x,y, use = "string", method = "correlation type")
+
+#x ix is a numeric variable or dataframe.
+#y is another numeric variable
+#use is set equal to a character string that specifies how missing values are handled. (1) “everything”, (2) “all.obs”, (3) “complete.obs”, (4) “pairwise. complete.obs” (read page 358 for further description)
+#method enables you to specify whether you want “pearson”, “spearman” or “kendall” correlations, you can choose more than one. 
+
+cor(df$balloon_balance, df$balloon, use = "everything", method = "pearson")
+
+
+#For kun at printe selve værdien /// ved at kalde "estimate"
+#Running Spearman correlation test: cor.test(x,y, method = 'spearman')
+output_spearman <- cor.test(rdf$rt, rdf$word_length, method = 'spearman')
+
+r_spearman <- output_spearman$estimate   
+
+#writing down the estimate
+
+#seeing output and result of r
+output_spearman
+r_spearman
+
+#Calculating the R2 by taking the squareroot of r  (WAY Nr 1)
+sqrt(r_spearman)
+  
+
+######The coefficient of determination r^2
+#^2 means "squared"
+cor(df$balloon_balance, df$balloon)^2
+
+
+
+######Cor.test (non-parametric tests)
+#Cor.test also calculates the p-value within the two variables
+
+cor.test(df$balloon_balance, df$balloon, alternative = "less", method = "spearman")
+
+#The "pearson" gives me a t-test aswell
+cor.test(df$hours_music_per_week, df$sound_level_pref, alternative = "less", method = "pearson")
+
+cor.test(df$balloon_balance, df$balloon, alternative = "less", method = "kendall")
+
+
+######calculating the biserial correlation
+install.packages("polycor")
+library(polycor)
+polyserial(df$hours_music_per_week, df$sound_level_pref)
+
+
+##### Partial correlation:
+install.packages("ggm")
+library(ggm)
+
+pcor(c("var1", "var2", "control1", "control2" etc.), var(dataframe))
+#two first variables is for the partial correlation, the next two i for which you want to 'control' 
+
+pcor(c("sound_level_pref", "hours_music_per_week", "balloon", "balloon_balance"), var(df))
+
+#asigning it to a variable, to preform a squareroot
+partial_correlation<- pcor(c("sound_level_pref", "hours_music_per_week", "balloon", "balloon_balance"), var(df))
+
+partial_correlation^2
+
+#to see the significance of the partial correlation, do a pcor.test
+pcor.test(partial_correlation, 1, 44)
+
+```
+
+# BOOT STRAPPING
+Bootstrapping is a statistical procedure that resamples a single dataset to create many simulated samples. 
+
+This process allows you to calculate standard errors, construct confidence intervals, and perform hypothesis testing for numerous types of sample statistics. 
+
+Bootstrap methods are alternative approaches to traditional hypothesis testing and are notable for being easier to understand and valid for more conditions.
+
+```{r}
+
+library(boot)
+
+#The boot-function with correlation 
+boot1 <- function(df,i) cor(df$sound_level_pref[i], df$hours_music_per_week[i], use = "complete.obs", method = "kendall")
+
+#To create the bootstrap object:
+boot_kendall <- boot(df, boot1, 2000)
+boot_kendall
+
+#95% confidentce interval for the boot_kendall object 
+boot.ci(boot_kendall)
+
+```
+
 
 
 # VISUALIZING
@@ -457,8 +562,6 @@ quantiles is just a generalization of median, quantile and percentile etc.
 (forestil dig en normal distbribution, delt på midten,  midten er MEDIAN)(50% på en ene side / 50% på den anden)
 forestil dig en normaldistribution delt i fire, det er en quantile: 50% på den ene siden 50% på den anden, ud af hver 50% er de små områer 12,5 % (?)
 
-
-
 ```{r}
 #Basic Q-Q plot
 ggplot(df, aes(sample = balloon)) + stat_qq() +
@@ -486,12 +589,253 @@ qqnorm(resid(model1))
 qqline(resid(model1))
 ```
 
+## Density plot
+```{r}
+ggplot(politeness, aes(f0mn))+geom_density()
+```
+
+## Plot interaction effect
+```{r}
+plot(allEffects(model6), multiline=TRUE, ci.style="bars")
+```
+
+
+# T-TEST
+
+T-test is the comparison of two means (simply)
+We have 3 t-tests: 
+
+## Independent t-test (welch or Student's)
+```{r}
+#PARAMETRIC TESTS (if normally distributed)
+
+##### Welch t-test 
+#2.1 Independent Welch t-test (default): t.test(Measure ~ Group, data = dataFrame/tibble)
+#Performs Welch Two Sample t-test, which is an independent (unpaired) t-test. It requires your data to be normally distributed in both groups and allows variances in these groups to be different.
+t.test(ReactionTime ~ Condition, data = data)
+
+
+#####Students t-test
+#change 'var.equal' argument to True to perform a student's t-test, rather than the default Welch's
+#2.2 Independent Student's t-test: t.test(Measure ~ Group, data = , var.equal = T)
+#'var.equal' argument is a logical variable indicating whether to treat the two variances as being equal. When set to true, your variances are assumed to be equal in two groups, and test becomes a Student's t-test. It assumes that the two populations have normal distributions with equal variances. 
+t.test(ReactionTime ~ Condition, data = data, var.equal = T) 
+```
+
+## Paired t-test
+```{r}
+# ALSO PARAMETRIC (for normally distributed data)
+#2.3 A paired t-test: t.test(Measure ~ Group, data = , paired = T)
+#'paired' argument indicates whether you want a paired t-test (aka repeated measures: both group 1 and group 2 consist of the same participants ). It's meaningless in the context of our study, but you can try to run it anyway. 
+#set 'paired' argument to True to perform a paired (dependent) t-test (might not work due to our experimental design)
+
+t.test(ReactionTime ~ Condition, data = data, paired = T)
+```
+
+## One-sample-t-test
+```{r}
+#2.4 A one sample t-test: t.test(df$Measure, mu = )
+#mu is a number indicating the true value of the mean. One-sample t-test is used to compare the mean of one sample to a known standard (or theoretical/hypothetical) mean (mu). Generally, the theoretical mean comes from either a previous experiment or from specifics of your experimental design. #a one sample t-test: is mean of our sample different from the theoretical mean of 0.5
+
+t.test(data$ReactionTime, mu = 0.5)  
+```
+
+
+## Non-parametric t-test 
+If data is NOT normally distributed
+```{R}
+#  2.5.1  Independent t-test: WRS2::yuen(Measure ~ Group, data = data)
+WRS2::yuen(ReactionTime ~ Gender, data = data)
+
+#2.5.2 Paired t-test: WRS2::yuen(x, y, tr = 0.2)
+WRS2::yuen(x, y, tr = 0.2)
+
+
+
+#REMEMBER TO VISUALIZE YOUR RESULTS
+#Jonathan's example from class 6 
+transformed_data$ID <- as.factor(transformed_data$ID)
+ggplot(transformed_data, aes(x = ID, y = rt_rec, colour = ID)) +
+  theme_minimal() +
+  labs(x = "Condition", y = "Reading time (reciprocal transform)") +
+  geom_boxplot(width = 0.5) +
+  ggtitle("Box Plot: reciprocally transformed reading time depending on condition")
+
+```
+
+
 
 # MODELLING
+
 ## Linear regression
+Reporting linReg
+*"A linear regression analysis was used to test if the amount of sugar significantly predicted the rating of ceral products. Adjusting for the number of predictors, the results of the regression indicated that the predictor explained 57.8% of the variance in aggression metric (Adjusted R2 =.0578, F(1,74)= 103.7, p<.001). It was found that bigger amount of sugar significantly predicted the rating of product (β = -2.4614, SE =0.2417, t = -10.18, p<.001)."*
+
+When reporting model performance: 
+  mention either of R squared and corresponding explained variance
+     if you have just one predictor - R squared is fine
+     if yoy have more - adjusted R squared is better
+  F(number of predictors, remaining degrees of freedom) = F statistic
+  p-value associated with F statistic
+    
+When reporting results for research question (do so for every predictor):
+  beta value
+  standard error
+  t value
+  associated p-value
+  
+### Visualizing the linReg
+```{r}
+# The smart method
+ggplot(df, aes(Rating, Sugars))+
+  geom_point()+
+  geom_smooth(method = lm)
+
+# The manual method
+fit1 <- lm(Rating ~ Sugars, df)
+
+int <- fit1$coefficients[1]
+slope <- fit1$coefficients[2]
+
+
+ggplot(df, aes(Rating, Sugars))+
+  geom_point()+
+  geom_abline(intercept = int, slope = slope)
+  
+```
+
+
 ## Multilevel regression
-## Mixed effects regressions
+
+Recap basics
+    Add more predictors with a '+' sign
+```{r}
+summary(lm(Rating ~ Sugars + Sodium, df))
+```
+DO NOT USE PREDICTORS THAT CORRELATES TOGETHER (use cor tests):
+```{r}
+round(cor(df),2)
+
+cor(df)
+
+# a heatmap: Shows correlation visually
+library(reshape2)
+qplot(x=Var1, y=Var2, 
+      data=melt(cor(df, use="p")), 
+      fill=value, 
+      geom="tile") +
+   scale_fill_gradient2(limits=c(-1, 1))
+```
+
+## Mixed effects models
+
+
 ## Logistic regression
+
+
+# COMPARING MODELS
+*Keywords: ANOVA, aov, BIC, Akaike*
+
+## R-squared
+See *adjusted r squared* of the models, the highest is best: R-squared tells us how much variance is explained by the model (in %)
+```{r}
+# Making models
+fit2 <- lm(Rating~Sugars,df)
+fit3 <- lm(Rating~Sugars + Sodium,df)
+fit4 <- lm(Rating~Sugars + Sodium + Fiber,df)
+
+#Looking only at r^2
+summary(fit2)$adj.r.squared
+summary(fit3)$adj.r.squared
+summary(fit4)$adj.r.squared
+
+# Another way to get  r-squared (look at conditional)
+MuMIn::r.squaredGLMM(model2) #R2c = 0.6967788
+MuMIn::r.squaredGLMM(model3) #R2c = 0.7899229
+```
+
+## Anova test
+  - It will take the model objects as arguments, and return an ANOVA testing whether the more complex model is significantly better at capturing the data than the simpler model. If the resulting p-value is sufficiently low (usually less than 0.05), we conclude that the more complex model is significantly better than the simpler model, and thus favor the more complex model. If the p-value is not sufficiently low (usually greater than 0.05), we should favor the simpler model. 
+```{r}
+anova(fit2, fit3, fit4)
+```
+
+## aov
+When we have more than three groups we want to compare with each other, we perform ANalysis Of VAriance (ANOVA). 
+*compare means, when we have more than two*
+
+The null hypothesis for ANOVE is that the mean values from all groups are the same. The alternative hypothesis is that at least one of the groups is different.
+
+To run an ANOVA you should use function aov() and use the summary function to see the result.
+
+NO difference in aov  (i.e. Null hypothesis is true).
+Differnce in aov (i.e. Null hypothesis is NOT true)
+
+Reporting:
+**“There was no significant effect of the country on happiness, F(2, 2997) = 0.013, p > .05.”**  
+
+You need to specify:
+    F(degrees of freedom for predictor, degrees of freedom for residuals) = F value AND p value for the predictor.
+    
+This output however, *does not* show:
+  1) whether all of the countries are different from each other, or whether it's just one country that is different from two others, 
+  2) the size or direction of the differencce
+  
+  
+```{r}
+#running anova and storing the output
+anova_model_nodiff <- aov(happiness ~ country, data = happy_allhigh)
+
+#looking at the output
+summary(anova_model_nodiff)
+
+
+#visualize the means (more than 3) compared
+#Box plot
+ggplot(happy_allhigh, aes(x = country, y = happiness, colour = country)) +
+  geom_boxplot(width = 0.5) +
+  ggtitle("Happiness in happiest countries")+
+  stat_summary(fun.y = mean, geom = "point", shape = 23, colour = "Black")
+
+#Box plot
+ggplot(happy_low, aes(x = country, y = happiness, colour = country)) +
+  geom_boxplot(width = 0.5) +
+  ggtitle("Happiness two happy countries and one sad")+
+  stat_summary(fun.y = mean, geom = "point", shape = 23, colour = "Black")
+```
+
+
+## AIC and BIC
+Further assesment of goodness of fit: BIC and Akaike
+A *lower AIC or BIC value* indicates a *better* model. You can use either AIC or BIC when you select your model, you don't have to use both.
+
+The *null hypothesis for ANOVA is* that the mean values from all groups are the same. The alternative hypothesis is that *at least one* of the groups is different.
+```{r}
+AIC(fit2, fit3, fit4) #lower is better
+
+BIC(fit2, fit3, fit4) #lower is better
+```
+
+## Sigma
+Residual standard deviation of models: Also a parameter with which we can compare models
+```{r}
+ResStdDev_all <- tibble(sigma_model1 = sigma(model1),
+                        sigma_model2=sigma(model2),
+                        sigma_model3=sigma(model3),
+                        sigma_model4=sigma(model4))
+```
+
+
+# MACHINE LEARNING
+
+## K-nearest neighbour
+
+## Neural networks
+
+## Clustering
+
+# SOCIAL NETWORK ANALYSIS (SNA)
+
 
 
 
