@@ -426,6 +426,16 @@ boot.ci(boot_kendall)
 
 # VISUALIZING
 
+## Combining base R plots
+```{r}
+par(mfrow=c(1,3))
+qqnorm(resid(model4))
+qqline(resid(model4))
+qqnorm(resid(model_1)) # delete again
+qqline(resid(model_1))
+```
+
+
 ## Saving a ggplot
 Saving ggplot (into your working directory)
 ```{r}
@@ -508,7 +518,8 @@ ggplot(df, aes(x=ocular_dom, y=breathhold, fill=ocular_dom))+
   scale_fill_brewer(palette = "Blues")
 ```
 
-## Boxplots
+## Boxplots 
+(much better than barplots)
 ```{r}
 #Basic boxplot
 ggplot(df, aes(x=gender, y=sound_level_pref))+
@@ -940,6 +951,9 @@ round(cor(df),2)
 
 cor(df)
 
+# Call forth those data points that have a correlation above .4 and below .7 REMEMBER that everything above around .7 is worrysome and should not be included in the same model (too much correlation)
+which(data.frame(cor(child)) > 0.4 & data.frame(cor(child) < 1))
+
 # a heatmap: Shows correlation visually
 library(reshape2)
 qplot(x=Var1, y=Var2, 
@@ -1343,6 +1357,7 @@ ds_newC <- sqrt((new[1] -C[1])^2 + (3*(new[2]-C[2]))^2)
 ## Neural networks
 
 Turning categorical variables into *flag variables* (necessary for the NN to function)
+A flag variable is kindda like making variable to as.factor, but you need to explicitly tell R that variables are factors.
 ```{r}
 # Turning the categorical variable 'hotel' into a flag variable
 hotel <- data.frame(Reduce(cbind, 
@@ -1577,7 +1592,7 @@ plot(g1)
 
 ```
 
-# Example A fully connected network
+## Example A fully connected network
 New adjacency matrix - a fully connected node. Every node is connected to any other nodes. Therefore, it is a star shape
 
 ```{r}
@@ -1601,7 +1616,7 @@ plot(g2)
 ```
 
 
-# Degree: The number of adjacent edges
+## Degree: The number of adjacent edges
 ```{r}
 help(degree)
 d1 <- degree(g1)
@@ -1616,7 +1631,7 @@ adjm2
 # adj matrix 1 
 ```
 
-# Closeness: centrality and betweenness
+## Closeness: centrality and betweenness
 ```{r}
 help(betweenness)
 
