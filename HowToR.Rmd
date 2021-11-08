@@ -78,7 +78,7 @@ dat <- read.delim("/Users/WIBE/Desktop/cogSci/Business Intelligence/7./adult.txt
 
 ## Multiple files
 ```{r}
-library("vroom")
+library(vroom)
 #1 create a data directory path pointing to data
 datadir<-"/Users/rikkeuldbaek/Desktop/Cognitive Science/3rd semester/Perception & Action/Eye-tracking workshop/Data Cleaning/Search_Count_Task"
 
@@ -98,6 +98,15 @@ newdf <- rbind(df1, df2)
 newdf <- cbind(df1, df2)
 
 ```
+
+## Multiple files 2
+```{r}
+df <- list.files(path = "data",     # Identify all csv files in folder
+                       pattern = "*.csv", full.names = TRUE) %>% 
+  lapply(read_csv) %>%                        
+  bind_rows
+```
+
 
 ## Save files
 ```{r}
@@ -636,6 +645,9 @@ ggplot(politeness, aes(f0mn))+geom_density()
 ## Plot interaction effect
 ```{r}
 plot(allEffects(model6), multiline=TRUE, ci.style="bars")
+
+# Another way of doing it
+interactions::interact_plot(model = model_7, pred = target.frames, modx = pas)
 ```
 
 
@@ -883,6 +895,7 @@ When reporting results for research question (do so for every predictor):
 model <- lm(outcome ~ predictor, data = mydata)
 
 summary(model)
+round(model@beta, 2) # Only showing coefficients of model
 ```
   
 *Visualizing the linReg*
@@ -943,6 +956,7 @@ Recap basics
     Add more predictors with a '+' sign
 ```{r}
 summary(lm(Rating ~ Sugars + Sodium, df))
+round(model@beta, 2) # Only showing coefficients of model
 ```
 
 DO NOT USE PREDICTORS THAT CORRELATES TOGETHER (use cor tests):
@@ -996,6 +1010,7 @@ politeness.model = lmer(frequency ~ attitude +
           gender + (1|subject) +
           (1|scenario), data=politeness)
 summary(politeness.model)
+round(model@beta, 2) # Only showing coefficients of model
 #comments: 
 
 #Random effects:
@@ -1012,10 +1027,7 @@ summary(politeness.model)
 #attitudepol  -19.721      5.584  -3.532
 #genderM     -108.516     21.013  -5.164
 #when going from "informal" to "polite", the pitch hz goes down with -19 hz
-#when going from "female" to "male"  the pitch hz goes down with -108 hz
-
-
-#no p-values øv ://
+# When going from "female" to "male"  the pitch hz goes down with -108 hz
 ```
 
 ### Interpreting
@@ -1036,9 +1048,9 @@ The interaction term in the model says that Korean men's pitch is 5.885hz higher
 *Explainer for myself*: 
 Pitch for kvinder når informal er gennemsnitligt 252.895 hz
 Pitch for mænd når informal er gennemsnitligt (252.895 - 112.054) = 140.841 hz
-Pitch for kvinder når polite, er: 252.895 -14.568. 
-Pitch for mænd når polite 252.895 - (- 112.054 - 14.568), = -127.622
-Interaction betyder, at attitude polite er 5.855 mindre for mænd end for kvinder. Dvs. at mænd taler med "5 hz" mindre end kvinder (korrigeret for køn) når de taler er i en polite situation.
+Pitch for kvinder når polite, er: 252.895 -15.646. 
+Pitch for mænd når polite 252.895 - (- 112.054 -15.646), = -127.622
+Interaction betyder, at attitude polite er 5.855 mindre for mænd end for kvinder. Dvs. at mænd taler med "5 hz" mindre end kvinder (korrigeret for køn) når de taler i en polite situation.
 
 ### Reporting
 
@@ -1680,6 +1692,47 @@ df <- tibble(rank_data, title_data)
 
 ```
 
+
+## Text formatting
+
+The *sub* and *gsub* function
+```{r}
+x <- c("oone", "two", "three", "four", "five")
+
+# Replace all the o's with k's in vector x (could also be whole words)
+sub("o", "k", x)
+# Beware, that for x[1], it replaces only the first o, not the second one...
+
+# Introducing gsub (global sub) which replaces all the content in a variable (meaning all the o's)
+gsub("o", "k", x)
+
+```
+
+The *Grepl* function
+```{r}
+# Say we had a data frame like:
+
+#  A tibble: 6 x 1
+#   `Liberal Party of Canada`
+#   <chr>                    
+# 1 John Aldag               
+# 2 Cloverdale – Langley City
+# 3 John.Aldag@parl.gc.ca    
+# 4 @jwaldag                 
+# 5 Omar Alghabra            
+# 6 Mississauga Centre 
+
+# And we wanted to make a new one, with only the lines that starts with @:
+new <- df[grepl("^@",df$`Liberal Party of Canada`),]
+
+# You can also combine functions. If you want to isolate the value that starts with @ AND ends with K: (starts with = ^, ends with = $)
+new <- df[grepl("^@ | K$",df$`Liberal Party of Canada`),]
+```
+
+## Create reproducible data:
+```{r}
+dput(head(df))
+```
 
 
 
